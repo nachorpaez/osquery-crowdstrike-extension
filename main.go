@@ -25,7 +25,8 @@ func main() {
 	server, err := osquery.NewExtensionManagerServer(
 		"crowdstrike_falcon",
 		*flSocketPath,
-		osquery.ServerTimeout(time.Duration(*flTimeout)*time.Second))
+		osquery.ServerTimeout(time.Duration(*flTimeout)*time.Second),
+	)
 	if err != nil {
 		log.Fatalf("Error creating extension: %s\n", err)
 	}

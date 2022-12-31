@@ -1,9 +1,14 @@
 # Crowdstrike Falcon OSQuery Extension
 
-Gathers basic data on sensor using `falconctl stats`. The rest of the data could probably be added pretty easily save the data tables, which might take a bit of work since the output isn't structured.
+Gathers basic data on sensor using `falconctl stats`.
 
-## Build
+## Usage
+For testing, you can load the extension with `osqueryi`.
 
-clone this repo
+By default, osquery does not want to load extensions not owned by root. You can either change the ownership of crowdstrike.ext to root, or run osquery with the `--allow_unsafe` flag.
 
-`make download && make build`
+```bash
+osqueryi --extension /path/to/crowdstrike.ext
+```
+
+For production deployment, you should refer to the [osquery documentation](https://osquery.readthedocs.io/en/stable/deployment/extensions/).
