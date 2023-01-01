@@ -2,124 +2,95 @@ package crowdstrike
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"os/exec"
+	"strconv"
 
 	"github.com/osquery/osquery-go/plugin/table"
-	"gopkg.in/ini.v1"
+	"github.com/pkg/errors"
+	"howett.net/plist"
 )
 
-const falconPath = "/Applications/Falcon.app/Contents/Resources/falconctl"
-
-// Stats is a reusable struct of the CFS stats output
 type Stats struct {
-	falconStats *ini.File
+	EndpointSecurity EndpointSecurity `plist:"EndpointSecurity"`
+	AgentInfo        AgentInfo        `plist:"agent_info"`
+	DynamicSettings  DynamicSettings  `plist:"dynamic_settings"`
 }
 
-func FalconStats() (Stats, error) {
-
-	out, err := exec.Command(falconPath, "stats").Output()
-	if err != nil {
-		log.Println(err)
-	}
-
-	cfg, err := ini.LoadSources(ini.LoadOptions{
-		SkipUnrecognizableLines: true,
-		KeyValueDelimiters:      ":",
-	}, out)
-	if err != nil {
-		log.Println(err)
-	}
-
-	stats := Stats{
-		falconStats: cfg,
-	}
-
-	return stats, nil
+type AgentInfo struct {
+	Version           string `plist:"version"`
+	AgentID           string `plist:"agentID"`
+	SensorOperational string `plist:"sensor_operational"`
+	CustomerID        string `plist:"customerID"`
 }
 
-func (s Stats) AgentInfo() agentInfo {
-	return agentInfo{
-		Version:           s.falconStats.Section("").Key("version").String(),
-		AgentID:           s.falconStats.Section("").Key("agentID").String(),
-		CustomerID:        s.falconStats.Section("").Key("customerID").String(),
-		SensorOperational: s.falconStats.Section("").Key("Sensor operational").String(),
-	}
+type EndpointSecurity struct {
+	Notify           int `plist:"notify"`
+	Exec             int `plist:"exec"`
+	AuthLookupMisses int `plist:"authLookupMisses"`
+	Setflags         int `plist:"setflags"`
+	AuthLookupCount  int `plist:"authLookupCount"`
+	AuthExecCount    int `plist:"authExecCount"`
+	Signal           int `plist:"signal"`
+	Timeouts         int `plist:"timeouts"`
+	Auth             int `plist:"auth"`
 }
 
-func (s Stats) CloudInfo() cloudInfo {
-	return cloudInfo{
-		Host:  s.falconStats.Section("").Key("Host").String(),
-		Port:  s.falconStats.Section("").Key("Port").String(),
-		State: s.falconStats.Section("").Key("State").String(),
-	}
-}
-
-func FalconGenerate(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
-	stats, err := FalconStats()
-	if err != nil {
-		log.Println(err)
-	}
-
-	agent := stats.AgentInfo()
-	cloud := stats.CloudInfo()
-
-	ft := FalconTable{
-		Version:           agent.Version,
-		AgentID:           agent.AgentID,
-		CustomerID:        agent.CustomerID,
-		SensorOperational: agent.SensorOperational,
-		Host:              cloud.Host,
-		Port:              cloud.Port,
-		State:             cloud.State,
-	}
-
-	var values []map[string]string
-
-	j, _ := json.Marshal(ft)
-	m := make(map[string]string)
-	err = json.Unmarshal(j, &m)
-	if err != nil {
-		return nil, err
-	}
-
-	values = append(values, m)
-
-	return values, nil
+type DynamicSettings struct {
+	InstallGuard string `plist:"installGuard"`
 }
 
 func FalconColumns() []table.ColumnDefinition {
 	return []table.ColumnDefinition{
-		table.TextColumn("Version"),
-		table.TextColumn("AgentID"),
-		table.TextColumn("CustomerID"),
-		table.TextColumn("SensorOperational"),
-		table.TextColumn("Host"),
-		table.TextColumn("Port"),
-		table.TextColumn("State"),
+		table.TextColumn("version"),
+		table.TextColumn("agent_id"),
+		table.TextColumn("customer_id"),
+		table.TextColumn("sensor_operational"),
+		table.TextColumn("install_guard"),
+		table.IntegerColumn("es_notify"),
+		table.IntegerColumn("es_exec"),
+		table.IntegerColumn("es_auth"),
 	}
 }
 
-type agentInfo struct {
-	Version           string
-	AgentID           string
-	CustomerID        string
-	SensorOperational string
+var execCommand = exec.Command
+
+const falconPath = "/Applications/Falcon.app/Contents/Resources/falconctl"
+
+func GetFalconStats() (*Stats, error) {
+
+	out, err := execCommand(falconPath, "stats --plist").Output()
+	if err != nil {
+		return nil, errors.Wrap(err, "calling falconctl stats --plist")
+	}
+
+	var cfg Stats
+	_, err = plist.Unmarshal(out, &cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing falconctl stats")
+	}
+
+	return &cfg, nil
 }
 
-type cloudInfo struct {
-	Host  string
-	Port  string
-	State string
-}
+// Per docs generator function has to return an array of map of strings
+func FalconGenerate(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
+	stats, err := GetFalconStats()
+	if err != nil {
+		log.Println(err)
+	}
 
-type FalconTable struct {
-	Version           string
-	AgentID           string
-	CustomerID        string
-	SensorOperational string
-	Host              string
-	Port              string
-	State             string
+	var values []map[string]string
+	values = append(values, map[string]string{
+		"version":            stats.AgentInfo.Version,
+		"agent_id":           stats.AgentInfo.AgentID,
+		"customer_id":        stats.AgentInfo.CustomerID,
+		"sensor_operational": stats.AgentInfo.SensorOperational,
+		"install_guard":      stats.DynamicSettings.InstallGuard,
+		"es_notify":          strconv.Itoa(stats.EndpointSecurity.Exec),
+		"es_exec":            strconv.Itoa(stats.EndpointSecurity.Notify),
+		"es_auth":            strconv.Itoa(stats.EndpointSecurity.Auth),
+	})
+
+	return values, nil
 }
