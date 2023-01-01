@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/bdemetris/osquery-crowdstrike-ext/tables/crowdstrike"
+	"github.com/nachorpaez/osquery-crowdstrike-extension/tables/crowdstrike"
 	osquery "github.com/osquery/osquery-go"
 	"github.com/osquery/osquery-go/plugin/table"
 )

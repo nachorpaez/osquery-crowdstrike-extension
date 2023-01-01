@@ -53,11 +53,13 @@ func FalconColumns() []table.ColumnDefinition {
 	}
 }
 
+var execCommand = exec.Command
+
 const falconPath = "/Applications/Falcon.app/Contents/Resources/falconctl"
 
 func GetFalconStats() (*Stats, error) {
 
-	out, err := exec.Command(falconPath, "stats --plist").Output()
+	out, err := execCommand(falconPath, "stats --plist").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "calling falconctl stats --plist")
 	}
