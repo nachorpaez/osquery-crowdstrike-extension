@@ -1,6 +1,6 @@
 module github.com/nachorpaez/osquery-crowdstrike-extension
 
-go 1.14
+go 1.16
 
 require (
 	github.com/osquery/osquery-go v0.0.0-20220706183148-4e1f83012b42
