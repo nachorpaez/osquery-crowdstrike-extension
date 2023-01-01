@@ -16,6 +16,9 @@ clean:
 	rm -rf build/
 	rm -rf ${PKGDIR_TMP}_darwin
 
+test:
+	go test -v ./... 
+
 build: .pre-build
 	GOOS=darwin GOARCH=amd64 go build -o build/${APP_NAME}-amd64 -pkgdir ${PKGDIR_TMP}
 	GOOS=darwin GOARCH=arm64 go build -o build/${APP_NAME}-arm64 -pkgdir ${PKGDIR_TMP}

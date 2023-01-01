@@ -35,6 +35,7 @@ func TestHelperProcess(t *testing.T) {
 
 func TestFalconGenerate(t *testing.T) {
 	execCommand = fakeExecCommand
+	falconPath = "./test_stats.plist"
 	defer func() { execCommand = exec.Command }()
 	rows, err := FalconGenerate(context.Background(), table.QueryContext{})
 	if err != nil {
@@ -52,6 +53,20 @@ func TestFalconGenerate(t *testing.T) {
 			"install_guard":      "Enabled",
 		},
 	}
+	if !reflect.DeepEqual(rows, expectedRows) {
+		t.Fatalf("rows mismatch: %+v vs. %+v", rows, expectedRows)
+	}
+}
+
+func TestFalconGenerateNotExists(t *testing.T) {
+	execCommand = fakeExecCommand
+	falconPath = "nonexistent_file"
+	defer func() { execCommand = exec.Command }()
+	rows, err := FalconGenerate(context.Background(), table.QueryContext{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expectedRows []map[string]string
 	if !reflect.DeepEqual(rows, expectedRows) {
 		t.Fatalf("rows mismatch: %+v vs. %+v", rows, expectedRows)
 	}

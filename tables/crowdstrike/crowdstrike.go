@@ -3,6 +3,7 @@ package crowdstrike
 import (
 	"context"
 	"log"
+	"os"
 	"os/exec"
 	"strconv"
 
@@ -55,10 +56,21 @@ func FalconColumns() []table.ColumnDefinition {
 
 var execCommand = exec.Command
 
-const falconPath = "/Applications/Falcon.app/Contents/Resources/falconctl"
+var falconPath = "/Applications/Falcon.app/Contents/Resources/falconctl"
+
+func FileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
 
 func GetFalconStats() (*Stats, error) {
-
+	// Check if binary exists
+	if !FileExists(falconPath) {
+		return nil, nil
+	}
 	out, err := execCommand(falconPath, "stats --plist").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "calling falconctl stats --plist")
@@ -79,7 +91,9 @@ func FalconGenerate(ctx context.Context, queryContext table.QueryContext) ([]map
 	if err != nil {
 		log.Println(err)
 	}
-
+	if stats == nil {
+		return nil, nil
+	}
 	var values []map[string]string
 	values = append(values, map[string]string{
 		"version":            stats.AgentInfo.Version,
